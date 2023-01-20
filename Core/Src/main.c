@@ -45,6 +45,11 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+int duty=0;
+int counter=0;
+int counter1=0;
+float r=0;
+float r1=0;
 
 /* USER CODE END PV */
 
@@ -56,6 +61,14 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+/* USER CODE BEGIN 0 */
+float calc_pwm(float val)
+{
+    const float k = 0.13f;
+    const float x0 = 70.0f;
+    return 10000.0f / (1.0f + exp(-k * (val - x0)));
+}
+
 
 /* USER CODE END 0 */
 
@@ -93,16 +106,49 @@ int main(void)
   MX_TIM6_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+//	  for(duty=0;duty<=100;duty++)
+//	  {
+//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty*400);
+//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, duty*400);
+//	  HAL_Delay(100);
+//	  }
+//	  for(duty=100;duty>=0;duty++)
+//	  {
+//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty*400);
+//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, duty*400);
+//	  HAL_Delay(100);
+//	  }
 
-//test gita
-	  //test gita 2
+//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 1000);
+//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 500);
+
+	  r = 50 * (1.0f + sin(counter / 100.0f));
+//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, counter1);
+	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, calc_pwm(r)/8);
+
+	  r1=calc_pwm(r)/8;
+	  HAL_Delay(10);
+
+//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
+//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 1000);
+
+	  //HAL_Delay(10);
+	 counter++;
+//	 counter1++;
+//
+//	 if(counter1>1000)
+//	 {
+//		 counter1=0;
+//	 }
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
