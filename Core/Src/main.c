@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "i2c.h"
 #include "tim.h"
 #include "usart.h"
 #include "usb_otg.h"
@@ -26,6 +27,10 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "bh1750_config.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -47,9 +52,10 @@
 /* USER CODE BEGIN PV */
 int duty=0;
 int counter=0;
-int counter1=0;
 float r=0;
 float r1=0;
+
+float light;
 
 /* USER CODE END PV */
 
@@ -67,6 +73,18 @@ float calc_pwm(float val)
     const float k = 0.13f;
     const float x0 = 70.0f;
     return 10000.0f / (1.0f + exp(-k * (val - x0)));
+}
+
+
+int __io_putchar(int ch)
+{
+  if (ch == '\n') {
+    __io_putchar('\r');
+  }
+
+  HAL_UART_Transmit(&huart3, (uint8_t*)&ch, 1, HAL_MAX_DELAY);
+
+  return 1;
 }
 
 
@@ -105,6 +123,8 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM6_Init();
   MX_TIM3_Init();
+  MX_I2C1_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
@@ -114,40 +134,37 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//	  for(duty=0;duty<=100;duty++)
-//	  {
-//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty*400);
-//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, duty*400);
-//	  HAL_Delay(100);
-//	  }
-//	  for(duty=100;duty>=0;duty++)
-//	  {
-//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty*400);
-//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, duty*400);
-//	  HAL_Delay(100);
-//	  }
 
-//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 1000);
-//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 500);
-
-	  r = 50 * (1.0f + sin(counter / 100.0f));
-//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, counter1);
-	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, calc_pwm(r)/8);
-
-	  r1=calc_pwm(r)/8;
-	  HAL_Delay(10);
-
-//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
-//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 1000);
-
-	  //HAL_Delay(10);
-	 counter++;
-//	 counter1++;
 //
-//	 if(counter1>1000)
-//	 {
-//		 counter1=0;
-//	 }
+	  //	  char msg[32] = { 0, };
+	  //	  int msg_len = sprintf(msg, "Illuminance:  %d [lx]\r\n", (int)light);
+	  //	  HAL_UART_Transmit(&huart3, (uint8_t*)msg, msg_len, 100);
+	  //	  HAL_Delay(1000);
+//Komunikacja z bh1750
+	  light = BH1750_ReadIlluminance_lux(&hbh1750_1);
+	  //to jest nasza wartość aktualna
+
+
+	  //miejsce na przyjęcie wiadomości z uart
+
+	  //miesjce na regulator
+
+
+	  //generacja PWM
+	  //	  r = 50 * (1.0f + sin(counter / 100.0f));
+	  ////	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, counter1);
+	  //	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, calc_pwm(r)/8);
+	  //
+	  //	  r1=calc_pwm(r)/8;
+	  //	  HAL_Delay(10);
+	  //
+	  //	 counter++;
+
+
+
+
+
+
 
     /* USER CODE END WHILE */
 
