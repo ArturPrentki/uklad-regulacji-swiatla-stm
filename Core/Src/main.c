@@ -29,10 +29,11 @@
 /* USER CODE BEGIN Includes */
 
 #include "bh1750_config.h"
+#include "pid2dof_config.h"
 #include <stdio.h>
 #include <string.h>
 
-#include <arm_math.h> /// jesli podkresla to zainstaluj cmsis dsp
+#include <arm_math.h>
 
 #include <stdlib.h>
 
@@ -64,11 +65,16 @@
 
 /* USER CODE BEGIN PV */
 int duty=0;
+float light;
 
 float SWV_VAR; /// do podgladu na wykresie
 //arm_pid_instance_f32 S; /// tworzymy obiekt pid
-arm_pid_instance_f32 S = {.Kp = kp, .Ki = ki};
-float light;
+//arm_pid_instance_f32 S = {.Kp = kp, .Ki = ki};
+arm_pid_instance_f32 S;
+
+
+float light_ctrl = 0.0f;
+
 
 
 
@@ -96,6 +102,7 @@ void PID_init(void)///przywiazanie wartosci do obiektu
 {
 	S.Kp = kp;
 	S.Ki = ki*Tp;
+	S.Kd=0;
 	arm_pid_init_f32(&S, 1);
 }
 float32_t PID_control(float we) ///funkcja z wartoscia zadana i liczenie uchybu
@@ -191,22 +198,22 @@ int main(void)
 //Komunikacja z bh1750
 	  light = BH1750_ReadIlluminance_lux(&hbh1750_1);
 
-	  char msg[32] = { 0, };
-	  int msg_len = sprintf(msg, "Illuminance:  %d [lx]\r\n", (int)light);
-	  HAL_UART_Transmit(&huart3, (uint8_t*)msg, msg_len, 100);
-	  HAL_Delay(1000);
+//	  char msg[32] = { 0, };
+//	  int msg_len = sprintf(msg, "Illuminance:  %d [lx]\r\n", (int)light);
+//	  HAL_UART_Transmit(&huart3, (uint8_t*)msg, msg_len, 100);
+//	  HAL_Delay(100);
 	  //to jest nasza wartość aktualna
 
 
 	  //miejsce na przyjęcie wiadomości z uart
-//	  uart3_recived_status = HAL_UART_Receive (& huart3 , ( uint8_t *)single_message_recived ,strlen("999"), 1000);
-//	  single_message_recived [4]= ' \0 ';
-//
-//	  if ( uart3_recived_status == HAL_OK )
-//	  {
-//		  sscanf((char*) single_message_recived, "%i" , &var);
-//	  }
-	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 999);
+	  uart3_recived_status = HAL_UART_Receive (& huart3 , ( uint8_t *)single_message_recived ,strlen("999"), 100);
+	  single_message_recived [4]= ' \0 ';
+
+	  if ( uart3_recived_status == HAL_OK )
+	  {
+		  sscanf((char*) single_message_recived, "%i" , &var);
+	  }
+//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 999);
 
 //	  sprintf(single_message_response , "uart reciveed %s\r\n " ,
 //	  single_message_recived);
@@ -215,6 +222,19 @@ int main(void)
 //	  strlen ( single_message_response) , 10000) ;
 
 	  //miesjce na regulator
+
+	  light_ctrl = PID2DOF_GetOutput(&hlight_pid, var, light);
+	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, light_ctrl*10);
+
+
+
+
+
+
+
+
+
+
 
 
 	  //generacja PWM

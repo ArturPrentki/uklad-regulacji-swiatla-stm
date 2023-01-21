@@ -1,0 +1,2 @@
+../Core/Src/pid2dof.c:32:6:PID2DOF_Init	16	static
+../Core/Src/pid2dof.c:39:7:PID2DOF_GetOutput	40	static
