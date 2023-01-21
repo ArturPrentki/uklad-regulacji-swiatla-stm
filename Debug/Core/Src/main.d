@@ -33,8 +33,10 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_ll_usb.h \
  ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_pcd_ex.h \
  ../Core/Inc/i2c.h ../Core/Inc/main.h ../Core/Inc/tim.h \
- ../Core/Inc/usart.h ../Core/Inc/usb_otg.h ../Core/Inc/gpio.h \
- ../Core/Inc/bh1750_config.h ../Core/Inc/bh1750.h
+ ../Core/Inc/usart.h ../Core/Inc/gpio.h ../Core/Inc/bh1750_config.h \
+ ../Core/Inc/bh1750.h \
+ ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Include/arm_math.h \
+ ../Drivers/CMSIS/Include/cmsis_compiler.h
 ../Core/Inc/main.h:
 ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal.h:
 ../Core/Inc/stm32f7xx_hal_conf.h:
@@ -73,7 +75,8 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Core/Inc/main.h:
 ../Core/Inc/tim.h:
 ../Core/Inc/usart.h:
-../Core/Inc/usb_otg.h:
 ../Core/Inc/gpio.h:
 ../Core/Inc/bh1750_config.h:
 ../Core/Inc/bh1750.h:
+../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Include/arm_math.h:
+../Drivers/CMSIS/Include/cmsis_compiler.h:

@@ -21,8 +21,9 @@
 #include "i2c.h"
 #include "tim.h"
 #include "usart.h"
-#include "usb_otg.h"
+//#include "usb_otg.h"
 #include "gpio.h"
+
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -30,7 +31,11 @@
 #include "bh1750_config.h"
 #include <stdio.h>
 #include <string.h>
-#include <stdio.h>
+
+#include <arm_math.h> /// jesli podkresla to zainstaluj cmsis dsp
+
+#include <stdlib.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -40,6 +45,14 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+#define Tp 0.01 /// czestotliwosc wyswietlania
+//#define k 1  // do symulacji
+//#define T 5  /// do symulacji
+
+#define kp 40		///trzeba dobrac eksperymentalnie nastawy
+#define ki 10
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -51,11 +64,15 @@
 
 /* USER CODE BEGIN PV */
 int duty=0;
-int counter=0;
-float r=0;
-float r1=0;
 
+float SWV_VAR; /// do podgladu na wykresie
+//arm_pid_instance_f32 S; /// tworzymy obiekt pid
+arm_pid_instance_f32 S = {.Kp = kp, .Ki = ki};
 float light;
+
+
+
+
 
 /* USER CODE END PV */
 
@@ -75,17 +92,42 @@ float calc_pwm(float val)
     return 10000.0f / (1.0f + exp(-k * (val - x0)));
 }
 
-
-int __io_putchar(int ch)
+void PID_init(void)///przywiazanie wartosci do obiektu
 {
-  if (ch == '\n') {
-    __io_putchar('\r');
-  }
-
-  HAL_UART_Transmit(&huart3, (uint8_t*)&ch, 1, HAL_MAX_DELAY);
-
-  return 1;
+	S.Kp = kp;
+	S.Ki = ki*Tp;
+	arm_pid_init_f32(&S, 1);
 }
+float32_t PID_control(float we) ///funkcja z wartoscia zadana i liczenie uchybu
+{
+	static float y = 0; ///wywoluje sie tylko raz
+	float error = we - y;
+	//y = model(arm_pid_f32(&S, error)); // zamiast modelu to ustawiamy wartosc wypelnienia pwm __HAL_TIM_Set_Compare(timer,jaki kanal,arm_pid_f32(&S, error))
+	y=__HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,arm_pid_f32(&S, error));
+	return y;
+}
+//
+//void SWV(float value) /// dla symulacyjnego pokazania
+//{
+//	for(int i = 0; i < 10*(1/Tp); i++)
+//	{
+//		SWV_VAR = PID_control(value);
+//		HAL_Delay(1000*Tp);
+//	}
+//}
+//int __io_putchar(int ch)
+//{
+//  if (ch == '\n') {
+//    __io_putchar('\r');
+//  }
+//
+//  HAL_UART_Transmit(&huart3, (uint8_t*)&ch, 1, HAL_MAX_DELAY);
+//
+//  return 1;
+//}
+
+
+
 
 
 /* USER CODE END 0 */
@@ -97,7 +139,11 @@ int __io_putchar(int ch)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+	uint8_t single_message_recived [30]={0};
+	int var=0;
+	char single_message_response [30]={0};
 
+	HAL_StatusTypeDef uart3_recived_status ;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -119,15 +165,20 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART3_UART_Init();
-  MX_USB_OTG_FS_PCD_Init();
+  //MX_USB_OTG_FS_PCD_Init();
   MX_TIM2_Init();
   MX_TIM6_Init();
   MX_TIM3_Init();
   MX_I2C1_Init();
-  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+
+  BH1750_Init(&hbh1750_1);
+
+
+//  PID_init();
+//  PID_control(50);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -136,29 +187,45 @@ int main(void)
   {
 
 //
-	  //	  char msg[32] = { 0, };
-	  //	  int msg_len = sprintf(msg, "Illuminance:  %d [lx]\r\n", (int)light);
-	  //	  HAL_UART_Transmit(&huart3, (uint8_t*)msg, msg_len, 100);
-	  //	  HAL_Delay(1000);
+
 //Komunikacja z bh1750
 	  light = BH1750_ReadIlluminance_lux(&hbh1750_1);
+
+	  char msg[32] = { 0, };
+	  int msg_len = sprintf(msg, "Illuminance:  %d [lx]\r\n", (int)light);
+	  HAL_UART_Transmit(&huart3, (uint8_t*)msg, msg_len, 100);
+	  HAL_Delay(1000);
 	  //to jest nasza wartość aktualna
 
 
 	  //miejsce na przyjęcie wiadomości z uart
+//	  uart3_recived_status = HAL_UART_Receive (& huart3 , ( uint8_t *)single_message_recived ,strlen("999"), 1000);
+//	  single_message_recived [4]= ' \0 ';
+//
+//	  if ( uart3_recived_status == HAL_OK )
+//	  {
+//		  sscanf((char*) single_message_recived, "%i" , &var);
+//	  }
+	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 999);
+
+//	  sprintf(single_message_response , "uart reciveed %s\r\n " ,
+//	  single_message_recived);
+//
+//	  HAL_UART_Transmit (& huart3 , ( uint8_t *) single_message_response ,
+//	  strlen ( single_message_response) , 10000) ;
 
 	  //miesjce na regulator
 
 
 	  //generacja PWM
-	  //	  r = 50 * (1.0f + sin(counter / 100.0f));
-	  ////	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, counter1);
-	  //	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, calc_pwm(r)/8);
-	  //
-	  //	  r1=calc_pwm(r)/8;
-	  //	  HAL_Delay(10);
-	  //
-	  //	 counter++;
+//	  	  r = 50 * (1.0f + sin(counter / 100.0f));
+//	  //	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, counter1);
+//	  	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, calc_pwm(r)/8);
+//
+//	  	  r1=calc_pwm(r)/8;
+//	  	  HAL_Delay(1);
+//
+//	  	 counter++;
 
 
 

@@ -1,13 +1,3 @@
-/**
-  ******************************************************************************
-  * @file    bh1750.h
-  * @author  AW       Adrian.Wojcik@put.poznan.pl
-  * @version 1.0
-  * @date    04-Nov-2020
-  * @brief   Simple driver for digital light sensor with I2C: BH1750.
-  *
-  ******************************************************************************
-  */
 #ifndef INC_BH1750_H_
 #define INC_BH1750_H_
 
