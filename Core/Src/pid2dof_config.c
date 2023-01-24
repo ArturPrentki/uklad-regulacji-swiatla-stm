@@ -23,10 +23,12 @@
 
 /* Public variables ----------------------------------------------------------*/
 PID_HandleTypeDef hlight_pid = {
-  .Kp = 0.0f, .Ki = 0.5f, .Kd = 0.0f,
+  .Kp = 0.0f, .Ki = 1.8f, .Kd = 0.01f,
   .N = 0.01f, .Ts = 0.025,
-	.LimitUpper = 100.0f, .LimitLower = 0.0f
+	.LimitUpper = 1000.0f, .LimitLower = 0.0f
 };
+
+//bylo Ts=0.025
 
 /* Private function prototypes -----------------------------------------------*/
 

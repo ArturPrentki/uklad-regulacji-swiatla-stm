@@ -21,15 +21,15 @@
 #include "i2c.h"
 #include "tim.h"
 #include "usart.h"
-//#include "usb_otg.h"
+#include "usb_otg.h"
 #include "gpio.h"
-
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
 #include "bh1750_config.h"
 #include "pid2dof_config.h"
+#include "led_config.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -47,12 +47,12 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define Tp 0.01 /// czestotliwosc wyswietlania
-//#define k 1  // do symulacji
-//#define T 5  /// do symulacji
-
-#define kp 40		///trzeba dobrac eksperymentalnie nastawy
-#define ki 10
+//#define Tp 0.01 /// czestotliwosc wyswietlania
+////#define k 1  // do symulacji
+////#define T 5  /// do symulacji
+//
+//#define kp 40		///trzeba dobrac eksperymentalnie nastawy
+//#define ki 10
 
 /* USER CODE END PD */
 
@@ -64,16 +64,24 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-int duty=0;
+//int duty=0;
 float light;
 
-float SWV_VAR; /// do podgladu na wykresie
-//arm_pid_instance_f32 S; /// tworzymy obiekt pid
-//arm_pid_instance_f32 S = {.Kp = kp, .Ki = ki};
-arm_pid_instance_f32 S;
+uint8_t single_message_recived [30]={0};
+int var=0;
+char single_message_response [30]={0};
+
+HAL_StatusTypeDef uart3_recived_status ;
+
+//float SWV_VAR; /// do podgladu na wykresie
+////arm_pid_instance_f32 S; /// tworzymy obiekt pid
+////arm_pid_instance_f32 S = {.Kp = kp, .Ki = ki};
+//arm_pid_instance_f32 S;
 
 
 float light_ctrl = 0.0f;
+
+_Bool LD1_State;
 
 
 
@@ -90,29 +98,29 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-/* USER CODE BEGIN 0 */
-float calc_pwm(float val)
-{
-    const float k = 0.13f;
-    const float x0 = 70.0f;
-    return 10000.0f / (1.0f + exp(-k * (val - x0)));
-}
 
-void PID_init(void)///przywiazanie wartosci do obiektu
-{
-	S.Kp = kp;
-	S.Ki = ki*Tp;
-	S.Kd=0;
-	arm_pid_init_f32(&S, 1);
-}
-float32_t PID_control(float we) ///funkcja z wartoscia zadana i liczenie uchybu
-{
-	static float y = 0; ///wywoluje sie tylko raz
-	float error = we - y;
-	//y = model(arm_pid_f32(&S, error)); // zamiast modelu to ustawiamy wartosc wypelnienia pwm __HAL_TIM_Set_Compare(timer,jaki kanal,arm_pid_f32(&S, error))
-	y=__HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,arm_pid_f32(&S, error));
-	return y;
-}
+//float calc_pwm(float val)
+//{
+//    const float k = 0.13f;
+//    const float x0 = 70.0f;
+//    return 10000.0f / (1.0f + exp(-k * (val - x0)));
+//}
+//
+//void PID_init(void)///przywiazanie wartosci do obiektu
+//{
+//	S.Kp = kp;
+//	S.Ki = ki*Tp;
+//	S.Kd=0;
+//	arm_pid_init_f32(&S, 1);
+//}
+//float32_t PID_control(float we) ///funkcja z wartoscia zadana i liczenie uchybu
+//{
+//	static float y = 0; ///wywoluje sie tylko raz
+//	float error = we - y;
+//	//y = model(arm_pid_f32(&S, error)); // zamiast modelu to ustawiamy wartosc wypelnienia pwm __HAL_TIM_Set_Compare(timer,jaki kanal,arm_pid_f32(&S, error))
+//	y=__HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,arm_pid_f32(&S, error));
+//	return y;
+//}
 //
 //void SWV(float value) /// dla symulacyjnego pokazania
 //{
@@ -133,8 +141,26 @@ float32_t PID_control(float we) ///funkcja z wartoscia zadana i liczenie uchybu
 //  return 1;
 //}
 
+//void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+//{
+//    static char message2[] = "Forbot jest super!\r\n";
+//    HAL_UART_Transmit_IT(&huart3, (uint8_t*)message2, strlen(message2));
+//}
 
-
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  if(htim == &htim4)
+  {
+    LED_GPIO_Toggle(&hld1);
+    LD1_State = LED_GPIO_Read(&hld1);
+//		char message[] = char(light);
+//		HAL_UART_Transmit_IT(&huart3, (uint8_t*)message, strlen(message));
+    light = BH1750_ReadIlluminance_lux(&hbh1750_1);
+	char msg[32] = { 0, };
+	int msg_len = sprintf(msg, "Illuminance:  %d [lx]\r\n", (int)light);
+	HAL_UART_Transmit(&huart3, (uint8_t*)msg, msg_len, 100);
+  }
+}
 
 
 /* USER CODE END 0 */
@@ -146,11 +172,7 @@ float32_t PID_control(float we) ///funkcja z wartoscia zadana i liczenie uchybu
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	uint8_t single_message_recived [30]={0};
-	int var=0;
-	char single_message_response [30]={0};
 
-	HAL_StatusTypeDef uart3_recived_status ;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -172,16 +194,22 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART3_UART_Init();
-  //MX_USB_OTG_FS_PCD_Init();
-  MX_TIM2_Init();
-  MX_TIM6_Init();
+  MX_USB_OTG_FS_PCD_Init();
   MX_TIM3_Init();
   MX_I2C1_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+  HAL_TIM_Base_Start_IT(&htim4);
 
   BH1750_Init(&hbh1750_1);
+
+//  char message[] = "Hello World!\r\n";
+//  HAL_UART_Transmit_IT(&huart3, (uint8_t*)message, strlen(message));
+
+
+
 
 
 //  PID_init();
@@ -193,20 +221,20 @@ int main(void)
   while (1)
   {
 
-//
+
 
 //Komunikacja z bh1750
 	  light = BH1750_ReadIlluminance_lux(&hbh1750_1);
 
 //	  char msg[32] = { 0, };
 //	  int msg_len = sprintf(msg, "Illuminance:  %d [lx]\r\n", (int)light);
+//	  HAL_UART_Transmit_IT(&huart3, (uint8_t*)msg_len, msg_len);
 //	  HAL_UART_Transmit(&huart3, (uint8_t*)msg, msg_len, 100);
 //	  HAL_Delay(100);
 	  //to jest nasza wartość aktualna
 
-
 	  //miejsce na przyjęcie wiadomości z uart
-	  uart3_recived_status = HAL_UART_Receive (& huart3 , ( uint8_t *)single_message_recived ,strlen("999"), 100);
+	  uart3_recived_status = HAL_UART_Receive (& huart3 , ( uint8_t *)single_message_recived ,strlen("999"), 250);
 	  single_message_recived [4]= ' \0 ';
 
 	  if ( uart3_recived_status == HAL_OK )
@@ -224,7 +252,8 @@ int main(void)
 	  //miesjce na regulator
 
 	  light_ctrl = PID2DOF_GetOutput(&hlight_pid, var, light);
-	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, light_ctrl*10);
+	  //HAL_Delay(50);
+	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, light_ctrl);
 
 
 
