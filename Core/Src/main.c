@@ -47,12 +47,6 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-//#define Tp 0.01 /// czestotliwosc wyswietlania
-////#define k 1  // do symulacji
-////#define T 5  /// do symulacji
-//
-//#define kp 40		///trzeba dobrac eksperymentalnie nastawy
-//#define ki 10
 
 /* USER CODE END PD */
 
@@ -65,24 +59,19 @@
 
 /* USER CODE BEGIN PV */
 //int duty=0;
-float light;
+
 
 uint8_t single_message_recived [30]={0};
-int var=0;
-char single_message_response [30]={0};
-
 HAL_StatusTypeDef uart3_recived_status ;
 
-//float SWV_VAR; /// do podgladu na wykresie
-////arm_pid_instance_f32 S; /// tworzymy obiekt pid
-////arm_pid_instance_f32 S = {.Kp = kp, .Ki = ki};
-//arm_pid_instance_f32 S;
+char single_message_response [30]={0};
 
-
+int var=0;
+float light=0.f;
 float light_ctrl = 0.0f;
 
 _Bool LD1_State;
-
+_Bool LD3_State;
 
 
 
@@ -99,68 +88,60 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-//float calc_pwm(float val)
-//{
-//    const float k = 0.13f;
-//    const float x0 = 70.0f;
-//    return 10000.0f / (1.0f + exp(-k * (val - x0)));
-//}
-//
-//void PID_init(void)///przywiazanie wartosci do obiektu
-//{
-//	S.Kp = kp;
-//	S.Ki = ki*Tp;
-//	S.Kd=0;
-//	arm_pid_init_f32(&S, 1);
-//}
-//float32_t PID_control(float we) ///funkcja z wartoscia zadana i liczenie uchybu
-//{
-//	static float y = 0; ///wywoluje sie tylko raz
-//	float error = we - y;
-//	//y = model(arm_pid_f32(&S, error)); // zamiast modelu to ustawiamy wartosc wypelnienia pwm __HAL_TIM_Set_Compare(timer,jaki kanal,arm_pid_f32(&S, error))
-//	y=__HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,arm_pid_f32(&S, error));
-//	return y;
-//}
-//
-//void SWV(float value) /// dla symulacyjnego pokazania
-//{
-//	for(int i = 0; i < 10*(1/Tp); i++)
-//	{
-//		SWV_VAR = PID_control(value);
-//		HAL_Delay(1000*Tp);
-//	}
-//}
-//int __io_putchar(int ch)
-//{
-//  if (ch == '\n') {
-//    __io_putchar('\r');
-//  }
-//
-//  HAL_UART_Transmit(&huart3, (uint8_t*)&ch, 1, HAL_MAX_DELAY);
-//
-//  return 1;
-//}
 
-//void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
-//{
-//    static char message2[] = "Forbot jest super!\r\n";
-//    HAL_UART_Transmit_IT(&huart3, (uint8_t*)message2, strlen(message2));
-//}
+
+
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if(htim == &htim4)
   {
+	//dioda 1Hz
     LED_GPIO_Toggle(&hld1);
     LD1_State = LED_GPIO_Read(&hld1);
-//		char message[] = char(light);
-//		HAL_UART_Transmit_IT(&huart3, (uint8_t*)message, strlen(message));
-    light = BH1750_ReadIlluminance_lux(&hbh1750_1);
+
+    //wyslanie wartosci zadanej referencyjnej oraz sterowania po urat
 	char msg[32] = { 0, };
 	int msg_len = sprintf(msg, "Illuminance:  %d [lx]\r\n", (int)light);
 	HAL_UART_Transmit(&huart3, (uint8_t*)msg, msg_len, 100);
+	char msg1[32] = { 0, };
+	int msg_len1 = sprintf(msg1, "Ref:  %d [lx]\r\n", (int)var);
+	HAL_UART_Transmit(&huart3, (uint8_t*)msg1, msg_len1, 100);
+	char msg2[32] = { 0, };
+	int msg_len2 = sprintf(msg2, "PWM:  %d [promil]\r\n", (int)light_ctrl);
+	HAL_UART_Transmit(&huart3, (uint8_t*)msg2, msg_len2, 100);
+
+
+
+	uart3_recived_status = HAL_UART_Receive_IT (&huart3 , (uint8_t*)single_message_recived ,strlen("9999"));
+	single_message_recived [5]= ' \0 ';
+
+	if ( uart3_recived_status == HAL_OK )
+	{
+	  sscanf((char*) single_message_recived, "%i" , &var);
+	}
   }
+
+
+
+
+  if(htim == &htim1)
+    {
+	  //dioda 4Hz
+      LED_GPIO_Toggle(&hld3);
+      LD3_State = LED_GPIO_Read(&hld3);
+
+
+      //zebranie warotsci z czujnika BH1750
+      light = BH1750_ReadIlluminance_lux(&hbh1750_1);
+      //obliczenie wartosci PWM za pomoca regulatora PID
+	  light_ctrl = PID2DOF_GetOutput(&hlight_pid, var, light);
+	  //wykonanie procesu regulacjii
+	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, light_ctrl);
+
+    }
 }
+
 
 
 /* USER CODE END 0 */
@@ -198,89 +179,26 @@ int main(void)
   MX_TIM3_Init();
   MX_I2C1_Init();
   MX_TIM4_Init();
+  MX_TIM1_Init();
+  MX_TIM8_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
   HAL_TIM_Base_Start_IT(&htim4);
+  HAL_TIM_Base_Start_IT(&htim1);
+
+  HAL_UART_Receive_IT (&huart3, (uint8_t*)single_message_recived ,strlen("9999"));
+
 
   BH1750_Init(&hbh1750_1);
 
-//  char message[] = "Hello World!\r\n";
-//  HAL_UART_Transmit_IT(&huart3, (uint8_t*)message, strlen(message));
 
-
-
-
-
-//  PID_init();
-//  PID_control(50);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
-
-
-//Komunikacja z bh1750
-	  light = BH1750_ReadIlluminance_lux(&hbh1750_1);
-
-//	  char msg[32] = { 0, };
-//	  int msg_len = sprintf(msg, "Illuminance:  %d [lx]\r\n", (int)light);
-//	  HAL_UART_Transmit_IT(&huart3, (uint8_t*)msg_len, msg_len);
-//	  HAL_UART_Transmit(&huart3, (uint8_t*)msg, msg_len, 100);
-//	  HAL_Delay(100);
-	  //to jest nasza wartość aktualna
-
-	  //miejsce na przyjęcie wiadomości z uart
-	  uart3_recived_status = HAL_UART_Receive (& huart3 , ( uint8_t *)single_message_recived ,strlen("999"), 250);
-	  single_message_recived [4]= ' \0 ';
-
-	  if ( uart3_recived_status == HAL_OK )
-	  {
-		  sscanf((char*) single_message_recived, "%i" , &var);
-	  }
-//	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 999);
-
-//	  sprintf(single_message_response , "uart reciveed %s\r\n " ,
-//	  single_message_recived);
-//
-//	  HAL_UART_Transmit (& huart3 , ( uint8_t *) single_message_response ,
-//	  strlen ( single_message_response) , 10000) ;
-
-	  //miesjce na regulator
-
-	  light_ctrl = PID2DOF_GetOutput(&hlight_pid, var, light);
-	  //HAL_Delay(50);
-	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, light_ctrl);
-
-
-
-
-
-
-
-
-
-
-
-
-	  //generacja PWM
-//	  	  r = 50 * (1.0f + sin(counter / 100.0f));
-//	  //	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, counter1);
-//	  	  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, calc_pwm(r)/8);
-//
-//	  	  r1=calc_pwm(r)/8;
-//	  	  HAL_Delay(1);
-//
-//	  	 counter++;
-
-
-
-
-
-
 
     /* USER CODE END WHILE */
 
